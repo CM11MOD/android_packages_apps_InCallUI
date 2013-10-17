@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Not a Contribution, Apache license notifications and license are retained
+ * for attribution purposes only.
+ *
  * Copyright (C) 2006 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,8 +20,12 @@
 
 package com.android.incallui;
 
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+
 import com.android.services.telephony.common.Call;
 import com.android.services.telephony.common.Call.State;
+import com.android.services.telephony.common.CallDetails;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -57,6 +65,7 @@ public class InCallActivity extends Activity {
     private ConferenceManagerFragment mConferenceManagerFragment;
     private boolean mIsForegroundActivity;
     private AlertDialog mDialog;
+    private AlertDialog mModifyCallPromptDialog;
 
     /** Use to pass 'showDialpad' from {@link #onNewIntent} to {@link #onResume} */
     private boolean mShowDialpadRequested;
@@ -472,6 +481,7 @@ public class InCallActivity extends Activity {
         }
     }
 
+<<<<<<< HEAD
     public void onManageConferenceDoneClicked() {
         if (mConferenceManagerShown && !mConferenceManagerFragment.isVisible()) {
             mConferenceManagerShown = false;
@@ -495,6 +505,133 @@ public class InCallActivity extends Activity {
         window.setFlags(flags, WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS |
                 WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
         window.getDecorView().requestFitSystemWindows();
+=======
+    // The function is called when Modify Call button gets pressed.
+    // The function creates and displays modify call options.
+    public void displayModifyCallOptions(final int callId) {
+        final ArrayList<CharSequence> items = new ArrayList<CharSequence>();
+        final ArrayList<Integer> itemToCallType = new ArrayList<Integer>();
+        final Resources res = getResources();
+
+        // Prepare the string array and mapping.
+        items.add(res.getText(R.string.modify_call_option_voice));
+        itemToCallType.add(CallDetails.CALL_TYPE_VOICE);
+
+        items.add(res.getText(R.string.modify_call_option_vt_rx));
+        itemToCallType.add(CallDetails.CALL_TYPE_VT_RX);
+
+        items.add(res.getText(R.string.modify_call_option_vt_tx));
+        itemToCallType.add(CallDetails.CALL_TYPE_VT_TX);
+
+        items.add(res.getText(R.string.modify_call_option_vt));
+        itemToCallType.add(CallDetails.CALL_TYPE_VT);
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(R.string.modify_call_option_title);
+        final AlertDialog alert;
+
+        DialogInterface.OnClickListener listener = new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int item) {
+                Toast.makeText(getApplicationContext(), items.get(item), Toast.LENGTH_SHORT).show();
+                final int selCallType = itemToCallType.get(item);
+                Log.d("Videocall",
+                        "ModifyCall called: upgrade to " + CallUtils.fromCallType(selCallType));
+                InCallPresenter.getInstance().sendModifyCallRequest(callId, selCallType);
+                dialog.dismiss();
+            }
+        };
+        int currCallType = CallUtils.getCallType( CallList.getInstance().getCall(callId));
+        int index = itemToCallType.indexOf(currCallType);
+        builder.setSingleChoiceItems(items.toArray(new CharSequence[0]), index, listener);
+        alert = builder.create();
+        alert.show();
+    }
+
+    public void displayModifyCallConsentDialog(Call call) {
+        log("VideoCall: displayModifyCallConsentDialog");
+
+        if (mModifyCallPromptDialog != null) {
+            log("VideoCall: - DISMISSING mModifyCallPromptDialog.");
+            mModifyCallPromptDialog.dismiss(); // safe even if already dismissed
+            mModifyCallPromptDialog = null;
+        }
+
+        boolean error = CallUtils.hasCallModifyFailed(call);
+        int callType = CallUtils.getProposedCallType(call);
+        if (!error) {
+            String str = getResources().getString(R.string.accept_modify_call_request_prompt);
+            if (callType == CallDetails.CALL_TYPE_VT) {
+                str = getResources().getString(R.string.upgrade_vt_prompt);
+            } else if (callType == CallDetails.CALL_TYPE_VT_TX) {
+                str = getResources().getString(R.string.upgrade_vt_tx_prompt);
+            } else if (callType == CallDetails.CALL_TYPE_VT_RX) {
+                str = getResources().getString(R.string.upgrade_vt_rx_prompt);
+            }
+
+            final ModifyCallConsentListener onConsentListener =
+                    new ModifyCallConsentListener(call);
+            mModifyCallPromptDialog = new AlertDialog.Builder(this)
+                    .setMessage(str)
+                    .setPositiveButton(R.string.modify_call_prompt_yes,
+                            onConsentListener)
+                    .setNegativeButton(R.string.modify_call_prompt_no,
+                            onConsentListener)
+                    .setOnDismissListener(onConsentListener)
+                    .create();
+            mModifyCallPromptDialog.getWindow().addFlags(
+                    WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
+
+            mModifyCallPromptDialog.show();
+
+        } else {
+            log("VideoCall: Modify Call request failed.");
+            String errorMsg = getResources().getString(R.string.modify_call_failure_str);
+            toast(errorMsg);
+            // We are not explicitly dismissing mModifyCallPromptDialog
+            // here since it is dismissed at the beginning of this function.
+            // Note, connection type change will be rejected by
+            // the Modify Call Consent dialog.
+        }
+    }
+
+    private class ModifyCallConsentListener implements DialogInterface.OnClickListener,
+            DialogInterface.OnDismissListener {
+        private boolean mClicked = false;
+        private Call mCall;
+
+        public ModifyCallConsentListener(Call call) {
+            mCall = call;
+        }
+
+        @Override
+        public void onClick(DialogInterface dialog, int which) {
+            log("VideoCall: ConsentDialog: Clicked on button with ID: " + which);
+            mClicked = true;
+            switch (which) {
+                case DialogInterface.BUTTON_POSITIVE:
+                    InCallPresenter.getInstance().modifyCallConfirm(true, mCall);
+                    break;
+                case DialogInterface.BUTTON_NEGATIVE:
+                    InCallPresenter.getInstance().modifyCallConfirm(false, mCall);
+                    break;
+                default:
+                    loge("videocall: No handler for this button, ID:" + which);
+            }
+        }
+
+        @Override
+        public void onDismiss(DialogInterface dialog) {
+            if (!mClicked) {
+                log("VideoCall: ConsentDialog: Dismissing the dialog");
+                InCallPresenter.getInstance().modifyCallConfirm(false, mCall);
+            }
+        }
+    }
+
+    public void onAvpUpgradeFailure(String errorString) {
+        Log.e(this,"VideoCall: onAvpUpgradeFailure: errorString: " + errorString);
+        toast(getResources().getString(R.string.modify_call_failure_str));
+>>>>>>> 130c755...     Phone: Add support for video calls
     }
 
     public void showPostCharWaitDialog(int callId, String chars) {
@@ -526,7 +663,12 @@ public class InCallActivity extends Activity {
             mDialog.dismiss();
             mDialog = null;
         }
+
         mAnswerFragment.dismissPendingDialogues();
+        if (mModifyCallPromptDialog != null) {
+            mModifyCallPromptDialog.dismiss();
+            mModifyCallPromptDialog = null;
+        }
     }
 
     /**
@@ -588,6 +730,14 @@ public class InCallActivity extends Activity {
         mCallButtonFragment.setHideMode(mUseFullScreenCallerPhoto ? View.GONE : View.INVISIBLE);
         mCallButtonFragment.getPresenter().setShowButtonsIfIdle(!mUseFullScreenCallerPhoto);
         updateSystemBarTranslucency();
+    }
+
+    private void log(String msg) {
+        Log.d(this, msg);
+    }
+
+    private void loge(String msg) {
+        Log.e(this, msg);
     }
 
 }

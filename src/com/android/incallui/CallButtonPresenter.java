@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Not a Contribution, Apache license notifications and license are retained
+ * for attribution purposes only.
+ *
  * Copyright (C) 2013 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -244,6 +248,13 @@ public class CallButtonPresenter extends Presenter<CallButtonPresenter.CallButto
         mShowButtonsIfIdle = showIfIdle;
     }
 
+    public void modifyCallButtonClicked() {
+        Call call = CallList.getInstance().getActiveCall();
+        if (call != null) {
+            getUi().displayModifyCallOptions(call.getCallId());
+        }
+    }
+
     private void updateUi(InCallState state, Call call) {
         final CallButtonUi ui = getUi();
         if (ui == null) {
@@ -277,10 +288,12 @@ public class CallButtonPresenter extends Presenter<CallButtonPresenter.CallButto
             Log.v(this, "Show swap ", call.can(Capabilities.SWAP_CALLS));
             Log.v(this, "Show add call ", call.can(Capabilities.ADD_CALL));
             Log.v(this, "Show mute ", call.can(Capabilities.MUTE));
+            Log.v(this, "Show modify call ", call.can(Capabilities.MODIFY_CALL));
 
             final boolean canMerge = call.can(Capabilities.MERGE_CALLS);
             final boolean canAdd = call.can(Capabilities.ADD_CALL);
             final boolean isGenericConference = call.can(Capabilities.GENERIC_CONFERENCE);
+            final boolean canModifyCall = call.can(Capabilities.MODIFY_CALL);
 
 
             final boolean showMerge = !isGenericConference && canMerge;
@@ -329,6 +342,9 @@ public class CallButtonPresenter extends Presenter<CallButtonPresenter.CallButto
             }
 
             ui.enableMute(call.can(Capabilities.MUTE));
+
+            ui.enableModifyCall(canModifyCall);
+            ui.showModifyCall(canModifyCall);
 
             // Finally, update the "extra button row": It's displayed above the
             // "End" button, but only if necessary.  Also, it's never displayed
@@ -395,5 +411,8 @@ public class CallButtonPresenter extends Presenter<CallButtonPresenter.CallButto
         void showGenericMergeButton();
         void hideExtraRow();
         void displayManageConferencePanel(boolean on);
+        void displayModifyCallOptions(int callId);
+        void enableModifyCall(boolean enabled);
+        void showModifyCall(boolean show);
     }
 }

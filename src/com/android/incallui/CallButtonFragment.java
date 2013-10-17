@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Not a Contribution, Apache license notifications and license are retained
+ * for attribution purposes only.
+ *
  * Copyright (C) 2013 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,6 +28,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.ImageButton;
 import android.widget.PopupMenu;
@@ -57,6 +62,7 @@ public class CallButtonFragment
     private View mExtraRowButton;
     private View mManageConferenceButton;
     private View mGenericMergeButton;
+    private Button mModifyCallButton;
 
     private int mHideMode = View.GONE;
 
@@ -155,6 +161,9 @@ public class CallButtonFragment
             mBlacklistButton.setVisibility(View.GONE);
         }
 
+        mModifyCallButton = (Button) parent.findViewById(R.id.modifyCallButton);
+        mModifyCallButton.setOnClickListener(this);
+
         return parent;
     }
 
@@ -198,6 +207,9 @@ public class CallButtonFragment
                 break;
             case R.id.addBlacklistButton:
                 getPresenter().blacklistClicked(getActivity());
+                break;
+            case R.id.modifyCallButton:
+                getPresenter().modifyCallButtonClicked();
                 break;
             default:
                 Log.wtf(this, "onClick: unexpected");
@@ -310,6 +322,23 @@ public class CallButtonFragment
         getPresenter().setAudioMode(mode);
 
         return true;
+    }
+
+    @Override
+    public void displayModifyCallOptions(int callId) {
+        if (getActivity() != null && getActivity() instanceof InCallActivity) {
+            ((InCallActivity) getActivity()).displayModifyCallOptions(callId);
+        }
+    }
+
+    @Override
+    public void enableModifyCall(boolean enabled) {
+        mModifyCallButton.setEnabled(enabled);
+    }
+
+    @Override
+    public void showModifyCall(boolean show) {
+        mModifyCallButton.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
     // PopupMenu.OnDismissListener implementation; see showAudioModePopup().
